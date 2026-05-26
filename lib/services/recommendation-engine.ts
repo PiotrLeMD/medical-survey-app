@@ -143,6 +143,34 @@ export function calculateBudgetAllocation(
   }
 }
 
+/**
+ * Gdy pakiet jest przekroczony, sugeruje badania do przeniesienia do koszyka płatnego
+ * (zestaw minimalizujący liczbę sugestii przy pokryciu nadwyżki budżetu).
+ */
+export function suggestTestsToMoveForBudget(
+  employerFunded: LabTest[],
+  employerBudget: number,
+  employerTotal: number
+): LabTest[] {
+  if (employerTotal <= employerBudget || employerFunded.length === 0) {
+    return []
+  }
+
+  const overflow = employerTotal - employerBudget
+  const sortedByCost = [...employerFunded].sort((a, b) => b.cena_wew - a.cena_wew)
+
+  const suggestions: LabTest[] = []
+  let freedCost = 0
+
+  for (const test of sortedByCost) {
+    if (freedCost >= overflow) break
+    suggestions.push(test)
+    freedCost += test.cena_wew
+  }
+
+  return suggestions
+}
+
 function ensureTestInList(tests: LabTest[], test: LabTest): LabTest[] {
   if (tests.some(t => t.id === test.id)) return tests
   return [...tests, test]

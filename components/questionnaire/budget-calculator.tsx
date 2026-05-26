@@ -4,7 +4,6 @@ import * as React from "react"
 import { Info, Check, X, AlertTriangle, CheckCircle, ArrowRight, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import {
   Tooltip,
   TooltipContent,
@@ -16,6 +15,7 @@ import type { LabTest } from "@/lib/data/lab-tests"
 import {
   addToAdditionalPaid,
   calculateBudgetAllocation,
+  suggestTestsToMoveForBudget,
   tryAddToEmployerPackage,
 } from "@/lib/services/recommendation-engine"
 import { TestSearchPicker } from "@/components/questionnaire/test-search-picker"
@@ -49,6 +49,21 @@ export function BudgetCalculator({
     employerBudget,
     selectedIds,
     removedIds
+  )
+
+  const budgetSuggestions = React.useMemo(
+    () =>
+      suggestTestsToMoveForBudget(
+        allocation.employerFunded,
+        employerBudget,
+        allocation.employerTotal
+      ),
+    [allocation.employerFunded, allocation.employerTotal, employerBudget]
+  )
+
+  const suggestedTestIds = React.useMemo(
+    () => new Set(budgetSuggestions.map((t) => t.id)),
+    [budgetSuggestions]
   )
 
   const activeTestIds = React.useMemo(
@@ -101,8 +116,6 @@ export function BudgetCalculator({
     onRemovedChange(result.removedIds)
     toast.success("Badanie dodano do koszyka dodatkowo płatnych.")
   }
-  const budgetPercentage = Math.min((allocation.employerTotal / employerBudget) * 100, 100)
-
   const handleMoveToAdditional = (testId: number) => {
     onSelectionChange(selectedIds.filter(id => id !== testId))
   }
@@ -115,46 +128,59 @@ export function BudgetCalculator({
     <TooltipProvider>
       <div className="space-y-6">
         {/* Budget Status Card */}
-        <Card className={cn(
-          "border-2 transition-colors",
-          allocation.isWithinBudget ? "border-green-500/50 bg-green-50/50" : "border-destructive/50 bg-destructive/5"
-        )}>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Pakiet pracodawcy</CardTitle>
-              {allocation.isWithinBudget ? (
-                <div className="flex items-center gap-2 text-green-600">
-                  <CheckCircle className="h-5 w-5" />
-                  <span className="text-sm font-medium">W budżecie</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-destructive">
-                  <AlertTriangle className="h-5 w-5" />
-                  <span className="text-sm font-medium">Przekroczono</span>
-                </div>
-              )}
-            </div>
+        <Card className="border-2 border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Pakiet pracodawcy</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                {allocation.isWithinBudget
-                  ? "Wybrane badania mieszczą się w pakiecie finansowanym przez pracodawcę."
-                  : "Wybrane badania przekraczają pakiet pracodawcy."}
-              </p>
-              <Progress
-                value={budgetPercentage}
-                className={cn(
-                  "h-3",
-                  allocation.isWithinBudget ? "[&>div]:bg-green-500" : "[&>div]:bg-destructive"
-                )}
-              />
-              {!allocation.isWithinBudget && (
-                <p className="text-sm text-destructive">
-                  Przenieś część badań do koszyka dodatkowo płatnych, aby zmieścić się w pakiecie pracodawcy.
-                </p>
-              )}
-            </div>
+          <CardContent className="space-y-4">
+            {allocation.isWithinBudget ? (
+              <div className="flex gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-green-900">
+                <CheckCircle className="h-6 w-6 shrink-0 text-green-600" />
+                <div>
+                  <p className="font-semibold">Mieścisz się w pakiecie</p>
+                  <p className="mt-1 text-sm text-green-800/90">
+                    Wybrane badania są objęte pakietem finansowanym przez pracodawcę. Możesz zatwierdzić zapotrzebowanie.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-amber-950">
+                <AlertTriangle className="h-6 w-6 shrink-0 text-amber-600" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">Pakiet pracodawcy został przekroczony</p>
+                  <p className="mt-1 text-sm text-amber-900/90">
+                    Przenieś część badań do koszyka dodatkowo płatnych, aby zmieścić się w limicie pakietu.
+                  </p>
+                  {budgetSuggestions.length > 0 && (
+                    <div className="mt-4 rounded-lg border border-amber-200/80 bg-white/60 p-3">
+                      <p className="text-sm font-medium text-amber-950">
+                        Sugerowane badania do przeniesienia:
+                      </p>
+                      <ul className="mt-2 space-y-2">
+                        {budgetSuggestions.map((test) => (
+                          <li
+                            key={test.id}
+                            className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <span className="text-sm">{test.nazwa}</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="shrink-0 border-amber-300 bg-white hover:bg-amber-50"
+                              onClick={() => handleMoveToAdditional(test.id)}
+                            >
+                              Przenieś do płatnych
+                              <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -175,10 +201,20 @@ export function BudgetCalculator({
                 {allocation.employerFunded.map((test) => (
                   <div
                     key={test.id}
-                    className="flex flex-col gap-3 rounded-lg border border-primary bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    className={cn(
+                      "flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between",
+                      suggestedTestIds.has(test.id)
+                        ? "border-amber-300 bg-amber-50/50"
+                        : "border-primary bg-primary/5"
+                    )}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0 flex-wrap">
                       <span className="font-medium">{test.nazwa}</span>
+                      {suggestedTestIds.has(test.id) && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                          Sugerowane do przeniesienia
+                        </span>
+                      )}
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
