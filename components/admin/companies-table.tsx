@@ -52,8 +52,10 @@ export function CompaniesTable() {
     try {
       const data = await getCompanies()
       setCompanies(data)
-    } catch {
-      toast.error("Nie udało się załadować listy firm")
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Nie udało się załadować listy firm"
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -79,8 +81,10 @@ export function CompaniesTable() {
       setDialogOpen(false)
       setFormData({ nazwa: "", adres: "", nip: "", budzet: "50.00" })
       loadCompanies()
-    } catch {
-      toast.error("Nie udało się dodać firmy")
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Nie udało się dodać firmy"
+      toast.error(message)
     } finally {
       setSubmitting(false)
     }
@@ -97,8 +101,10 @@ export function CompaniesTable() {
       await deleteCompany(id)
       toast.success("Firma została usunięta")
       loadCompanies()
-    } catch {
-      toast.error("Nie udało się usunąć firmy")
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Nie udało się usunąć firmy"
+      toast.error(message)
     }
   }
 
